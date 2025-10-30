@@ -36,3 +36,19 @@
     transform: rotate(360deg);
   }
 }
+
+/* --- Map layout (required for map to be visible) --- */
+html, body, #root, .App {
+  height: 100%;
+  margin: 0;
+}
+
+.map-page {
+  position: relative;
+  height: 100%;
+}
+
+.map-container {
+  position: absolute;
+  inset: 0;
+}
