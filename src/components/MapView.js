@@ -18,12 +18,37 @@ export default function MapView() {
       return;
     }
 
+    const MAPTILER_KEY = process.env.REACT_APP_MAPTILER_KEY;
+    const streetsStyle = MAPTILER_KEY
+      ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
+      : {
+          version: 8,
+          sources: {
+            osm: {
+              type: 'raster',
+              tiles: [
+                'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+              ],
+              tileSize: 256,
+              attribution:
+                '© OpenStreetMap contributors',
+            },
+          },
+          layers: [
+            {
+              id: 'osm',
+              type: 'raster',
+              source: 'osm',
+            },
+          ],
+        };
+
     const map = new window.maplibregl.Map({
       container: mapContainerRef.current,
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: streetsStyle,
       center: DEFAULT_CENTER,
-      zoom: 14,
-      attributionControl: false,
+      zoom: 16,
+      attributionControl: true,
     });
 
     mapRef.current = map;
