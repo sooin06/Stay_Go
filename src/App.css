@@ -52,3 +52,45 @@ html, body, #root, .App {
   position: absolute;
   inset: 0;
 }
+
+/* Task overlay */
+.task-overlay {
+  position: absolute;
+  right: 12px;
+  top: 68px;
+  width: 260px;
+  max-height: 50vh;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(10, 24, 48, 0.85);
+  color: #e6f0ff;
+  border: 1px solid rgba(71,126,255,0.35);
+  backdrop-filter: blur(6px);
+}
+.task-title { font-weight: 800; margin-bottom: 8px; }
+.task-list { list-style: none; padding: 0; margin: 0; }
+.task-item { padding: 6px 0; }
+.task-item.done span { text-decoration: line-through; opacity: 0.7; }
+
+/* Modal */
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.modal {
+  width: min(460px, 90%);
+  background: #0c1222;
+  color: #e6f0ff;
+  border: 1px solid rgba(71,126,255,0.5);
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+}
+.modal-title { font-weight: 900; margin-bottom: 8px; font-size: 18px; }
+.modal-body { opacity: 0.9; margin-bottom: 12px; }

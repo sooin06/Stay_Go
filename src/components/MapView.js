@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import TaskOverlay from './TaskOverlay';
 
 // MapLibre GL is loaded via CDN in public/index.html
 
@@ -11,6 +12,13 @@ export default function MapView() {
   const accuracyCircleRef = useRef(null);
   const [error, setError] = useState('');
   const [tracking, setTracking] = useState(true); // 자동 시작
+  const [showSafety, setShowSafety] = useState(false);
+  const [tasks, setTasks] = useState([
+    { id: 't1', label: '서울로7017 상권 방문 인증', done: false },
+    { id: 't2', label: '광장에서 10분간 햇볕 쬐기', done: false },
+    { id: 't3', label: '로컬 상권 쿠폰 수령 포인트 찍기', done: false },
+  ]);
+  const lastFixRef = useRef(null);
 
   useEffect(() => {
     if (!window.maplibregl) {
@@ -99,6 +107,17 @@ export default function MapView() {
           el.style.height = `${pxRadius * 2}px`;
           accuracyCircleRef.current.setLngLat(lngLat);
         }
+          // Speed detection
+          const now = Date.now();
+          if (lastFixRef.current) {
+            const dt = Math.max(1, (now - lastFixRef.current.t) / 1000); // seconds
+            const meters = haversineMeters(lastFixRef.current.lat, lastFixRef.current.lng, latitude, longitude);
+            const speed = meters / dt; // m/s
+            if (speed > 12) { // ~43 km/h, 주행으로 판단
+              setShowSafety(true);
+            }
+          }
+          lastFixRef.current = { t: now, lat: latitude, lng: longitude };
         },
         (err) => {
           const codeMsg = {
@@ -127,6 +146,10 @@ export default function MapView() {
         <div className="brand">Stay Go</div>
         <div className="energy-pill">Lv 1</div>
       </div>
+      <TaskOverlay
+        tasks={tasks}
+        onToggle={(id) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)))}
+      />
       <div className="bottom-card">
         {!tracking && (
           <button className="big-action" onClick={() => { setError(''); setTracking(true); }}>
@@ -143,8 +166,28 @@ export default function MapView() {
       <div className="toast" style={{position:'absolute',left:12,bottom:12,color:'#9fb8ff',fontSize:12}}>
         본 프로젝트는 특정 게임의 자산을 사용하지 않으며, 유사한 테마만 적용합니다.
       </div>
+      {showSafety && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-title">안전 경고</div>
+            <div className="modal-body">운전 중에는 사용하지 마세요. 안전한 장소에서만 이용해 주세요.</div>
+            <button className="big-action" onClick={() => setShowSafety(false)}>확인</button>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+// Haversine distance (meters)
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 
