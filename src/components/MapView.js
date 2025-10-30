@@ -10,7 +10,7 @@ export default function MapView() {
   const userMarkerRef = useRef(null);
   const accuracyCircleRef = useRef(null);
   const [error, setError] = useState('');
-  const [tracking, setTracking] = useState(false);
+  const [tracking, setTracking] = useState(true); // 자동 시작
 
   useEffect(() => {
     if (!window.maplibregl) {
@@ -128,9 +128,16 @@ export default function MapView() {
         <div className="energy-pill">Lv 1</div>
       </div>
       <div className="bottom-card">
-        <button className="big-action" onClick={() => { setError(''); setTracking(true); }}>
-          {tracking ? '탐색 중…' : '탐색 시작'}
-        </button>
+        {!tracking && (
+          <button className="big-action" onClick={() => { setError(''); setTracking(true); }}>
+            탐색 시작
+          </button>
+        )}
+        {error && (
+          <button className="big-action" onClick={() => { setError(''); setTracking(true); }}>
+            다시 시도
+          </button>
+        )}
         {error && <div className="toast error">{error}</div>}
       </div>
       <div className="toast" style={{position:'absolute',left:12,bottom:12,color:'#9fb8ff',fontSize:12}}>
