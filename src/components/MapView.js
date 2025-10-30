@@ -10,6 +10,7 @@ export default function MapView() {
   const userMarkerRef = useRef(null);
   const accuracyCircleRef = useRef(null);
   const [error, setError] = useState('');
+  const [tracking, setTracking] = useState(false);
 
   useEffect(() => {
     if (!window.maplibregl) {
@@ -29,14 +30,17 @@ export default function MapView() {
 
     map.addControl(new window.maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
-    const geo = navigator.geolocation;
-    if (!geo) {
-      setError('이 브라우저는 위치 서비스를 지원하지 않습니다.');
-      return;
-    }
+    let watchId = null;
 
-    const watchId = geo.watchPosition(
-      (pos) => {
+    const startWatch = () => {
+      const geo = navigator.geolocation;
+      if (!geo) {
+        setError('이 브라우저는 위치 서비스를 지원하지 않습니다.');
+        return;
+      }
+
+      watchId = geo.watchPosition(
+        (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
         const lngLat = [longitude, latitude];
 
@@ -70,18 +74,26 @@ export default function MapView() {
           el.style.height = `${pxRadius * 2}px`;
           accuracyCircleRef.current.setLngLat(lngLat);
         }
-      },
-      (err) => {
-        setError(err.message || '위치 정보를 가져오지 못했습니다.');
-      },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
-    );
+        },
+        (err) => {
+          const codeMsg = {
+            1: '권한이 거부되었습니다. 브라우저 사이트 설정에서 위치 접근을 허용하세요.',
+            2: '위치 소스를 확인할 수 없습니다. Wi‑Fi/GPS 기능을 켜고 다시 시도하세요.',
+            3: '요청이 시간 초과되었습니다. 하늘이 보이는 곳으로 이동해 보세요.',
+          };
+          setError(codeMsg[err.code] || err.message || '위치 정보를 가져오지 못했습니다.');
+        },
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+      );
+    };
+
+    if (tracking) startWatch();
 
     return () => {
       if (watchId) navigator.geolocation.clearWatch(watchId);
       if (mapRef.current) mapRef.current.remove();
     };
-  }, []);
+  }, [tracking]);
 
   return (
     <div className="map-page">
@@ -91,7 +103,9 @@ export default function MapView() {
         <div className="energy-pill">Lv 1</div>
       </div>
       <div className="bottom-card">
-        <button className="big-action">탐색 시작</button>
+        <button className="big-action" onClick={() => { setError(''); setTracking(true); }}>
+          {tracking ? '탐색 중…' : '탐색 시작'}
+        </button>
         {error && <div className="toast error">{error}</div>}
       </div>
       <div className="toast" style={{position:'absolute',left:12,bottom:12,color:'#9fb8ff',fontSize:12}}>
