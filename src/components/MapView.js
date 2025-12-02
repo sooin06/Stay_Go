@@ -86,11 +86,21 @@ export default function MapView() {
 
     const init = async () => {
       try {
+        console.log('🗺️ 지도 초기화 시작...');
         const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID || 'f7c9uvryyl';
+        console.log('🔑 Client ID:', NAVER_CLIENT_ID);
+        
         const naverMaps = await loadNaverMaps(NAVER_CLIENT_ID);
+        console.log('✅ 네이버 지도 스크립트 로딩 완료:', naverMaps);
+        
         if (canceled) return;
+        if (!mapContainerRef.current) {
+          console.error('❌ 지도 컨테이너를 찾을 수 없습니다');
+          return;
+        }
 
         const centerLatLng = new naverMaps.LatLng(DEFAULT_CENTER[1], DEFAULT_CENTER[0]);
+        console.log('📍 지도 중심점:', centerLatLng);
 
         const map = new naverMaps.Map(mapContainerRef.current, {
           center: centerLatLng,
@@ -102,7 +112,16 @@ export default function MapView() {
           },
         });
 
+        console.log('🗺️ 지도 인스턴스 생성 완료:', map);
         mapRef.current = map;
+
+        // 지도 로딩 완료 후 강제 리사이즈 (화면에 보이도록)
+        setTimeout(() => {
+          if (map && typeof map.refresh === 'function') {
+            map.refresh();
+            console.log('🔄 지도 새로고침 완료');
+          }
+        }, 100);
 
         // POI markers (mission points)
         poiMarkersRef.current = poisRef.current.map((p) => {
@@ -208,7 +227,7 @@ export default function MapView() {
 
         if (tracking) startWatch();
       } catch (e) {
-        console.error(e);
+        console.error('❌ 지도 초기화 에러:', e);
         if (!canceled) {
           setError(
             e?.message ||
