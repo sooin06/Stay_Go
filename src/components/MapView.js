@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import TaskOverlay from './TaskOverlay';
 
-// 기본 중심: 서울시청 (lng, lat)
-const DEFAULT_CENTER = [126.9780, 37.5665];
+// 기본 중심: 조치원역 (lng, lat) - 세종시 조치원
+const DEFAULT_CENTER = [127.2980, 36.6015];
 
 // 네이버 지도 스크립트 동적 로더
 function loadNaverMaps(clientId) {
@@ -43,83 +42,198 @@ function loadNaverMaps(clientId) {
   });
 }
 
+// 방문 미션 장소 데이터 (지도 기반)
+const SAMPLE_PLACES = [
+  {
+    id: 1,
+    name: '고려대학교 세종캠퍼스 종합운동장 방문',
+    address: '세종특별자치시 조치원읍 세종로 2511',
+    category: '대학교',
+    rating: 4.5,
+    distance: '0.8km',
+    lat: 36.5015,
+    lng: 127.2530
+  },
+  {
+    id: 2,
+    name: '조치원역에서 기차 사진 찍기',
+    address: '세종특별자치시 조치원읍 조치원역로 1',
+    category: '역',
+    rating: 4.3,
+    distance: '1.2km',
+    lat: 36.6015,
+    lng: 127.2980
+  },
+  {
+    id: 3,
+    name: '세종문화예술회관 공연 관람',
+    address: '세종특별자치시 조치원읍 침산리',
+    category: '문화시설',
+    rating: 4.4,
+    distance: '1.5km',
+    lat: 36.5850,
+    lng: 127.2800
+  },
+  {
+    id: 4,
+    name: '세종전통시장에서 로컬 음식 체험',
+    address: '세종특별자치시 조치원읍 원리',
+    category: '시장',
+    rating: 4.6,
+    distance: '1.8km',
+    lat: 36.5950,
+    lng: 127.2950
+  },
+  {
+    id: 5,
+    name: '수지공원에서 산책하기',
+    address: '세종특별자치시 조치원읍 서창리',
+    category: '공원',
+    rating: 4.7,
+    distance: '2.0km',
+    lat: 36.5200,
+    lng: 127.2400
+  },
+  {
+    id: 6,
+    name: '조치원 문화정원 방문 인증',
+    address: '세종특별자치시 조치원읍 교리',
+    category: '공원',
+    rating: 4.5,
+    distance: '2.3km',
+    lat: 36.6100,
+    lng: 127.3100
+  },
+  {
+    id: 7,
+    name: '세종여자고등학교 앞에서 인증샷',
+    address: '세종특별자치시 조치원읍 서창리',
+    category: '학교',
+    rating: 4.2,
+    distance: '1.0km',
+    lat: 36.5100,
+    lng: 127.2600
+  },
+  {
+    id: 8,
+    name: '조치원 버스터미널에서 출발지 확인',
+    address: '세종특별자치시 조치원읍 원리',
+    category: '터미널',
+    rating: 4.3,
+    distance: '1.7km',
+    lat: 36.6000,
+    lng: 127.3000
+  }
+];
+
 export default function MapView() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
   const accuracyCircleRef = useRef(null);
   const [error, setError] = useState('');
-  const [tracking, setTracking] = useState(true); // 자동 시작
+  const [tracking, setTracking] = useState(true);
   const [showSafety, setShowSafety] = useState(false);
-  const [tasks, setTasks] = useState([
-    { id: 't1', label: '서울로7017 상권 방문 인증', done: false },
-    { id: 't2', label: '광장에서 10분간 햇볕 쬐기', done: false },
-    { id: 't3', label: '로컬 상권 쿠폰 수령 포인트 찍기', done: false },
-  ]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [places, setPlaces] = useState(SAMPLE_PLACES);
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationPermission, setLocationPermission] = useState('prompt');
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  
+  // 바텀시트 상태
+  const [bottomSheetOpen, setBottomSheetOpen] = useState(false);
+  const bottomSheetRef = useRef(null);
+  const startYRef = useRef(0);
+  const currentYRef = useRef(0);
+  
   const lastFixRef = useRef(null);
   const [selectedPoi, setSelectedPoi] = useState(null);
   const poiMarkersRef = useRef([]);
   const poisRef = useRef([
     {
-      id: 'poi-seoullo',
-      name: '서울로7017 스팟',
-      description: '도심 보행로에서 로컬 상권 미션을 수행하세요.',
-      imageUrl: 'https://images.unsplash.com/photo-1526481280698-8fcc13fd510d?q=80&w=1200&auto=format&fit=crop',
-      lng: 126.9707,
-      lat: 37.5551,
+      id: 'poi-korea-univ',
+      name: '고려대학교 세종캠퍼스',
+      description: '대학 캠퍼스를 탐방하고 학생 식당에서 식사하세요. 종합운동장에서 운동도 할 수 있어요!',
+      imageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop',
+      lng: 127.2530,
+      lat: 36.5015,
+      radiusMeters: 100,
+    },
+    {
+      id: 'poi-station',
+      name: '조치원역',
+      description: '조치원역에서 기차를 타고 주변 지역을 탐방해보세요. 역사 앞에서 인증샷을 찍어보세요!',
+      imageUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1200&auto=format&fit=crop',
+      lng: 127.2980,
+      lat: 36.6015,
+      radiusMeters: 50,
+    },
+    {
+      id: 'poi-culture-center',
+      name: '세종문화예술회관',
+      description: '문화예술회관에서 공연을 관람하거나 전시를 감상해보세요. 주변 카페에서 휴식도 가능해요.',
+      imageUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1200&auto=format&fit=crop',
+      lng: 127.2800,
+      lat: 36.5850,
       radiusMeters: 60,
     },
     {
-      id: 'poi-ddp',
-      name: 'DDP 광장',
-      description: '금요일 오후 7시에 단체 미션이 진행됩니다.',
-      imageUrl: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200&auto=format&fit=crop',
-      lng: 127.0094,
-      lat: 37.5667,
+      id: 'poi-market',
+      name: '세종전통시장',
+      description: '전통시장에서 로컬 음식을 맛보고 지역 특산품을 구매해보세요. 활기찬 분위기를 느낄 수 있어요!',
+      imageUrl: 'https://images.unsplash.com/photo-1556911220-bff31c812dba?q=80&w=1200&auto=format&fit=crop',
+      lng: 127.2950,
+      lat: 36.5950,
+      radiusMeters: 70,
+    },
+    {
+      id: 'poi-park',
+      name: '수지공원',
+      description: '수지공원에서 산책하고 자연을 만끽하세요. 가족과 함께 피크닉을 즐기기에 좋은 장소예요.',
+      imageUrl: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1200&auto=format&fit=crop',
+      lng: 127.2400,
+      lat: 36.5200,
       radiusMeters: 80,
+    },
+    {
+      id: 'poi-bus-terminal',
+      name: '조치원 버스터미널',
+      description: '버스터미널에서 주변 지역으로 가는 버스를 확인하고, 여행 계획을 세워보세요.',
+      imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?q=80&w=1200&auto=format&fit=crop',
+      lng: 127.3000,
+      lat: 36.6000,
+      radiusMeters: 50,
     },
   ]);
 
+  // 지도 초기화
   useEffect(() => {
     let watchId = null;
     let canceled = false;
 
     const init = async () => {
       try {
-        console.log('🗺️ 지도 초기화 시작...');
-        const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID || 'f7c9uvryyl';
-        console.log('🔑 Client ID:', NAVER_CLIENT_ID);
-        
+        const NAVER_CLIENT_ID = process.env.REACT_APP_NAVER_CLIENT_ID || 'yo27720eii16';
         const naverMaps = await loadNaverMaps(NAVER_CLIENT_ID);
-        console.log('✅ 네이버 지도 스크립트 로딩 완료:', naverMaps);
         
         if (canceled) return;
-        if (!mapContainerRef.current) {
-          console.error('❌ 지도 컨테이너를 찾을 수 없습니다');
-          return;
-        }
+        if (!mapContainerRef.current) return;
 
         const centerLatLng = new naverMaps.LatLng(DEFAULT_CENTER[1], DEFAULT_CENTER[0]);
-        console.log('📍 지도 중심점:', centerLatLng);
-
+        
         const map = new naverMaps.Map(mapContainerRef.current, {
           center: centerLatLng,
-          zoom: 16,
+          zoom: 14,
           minZoom: 6,
-          zoomControl: true,
-          zoomControlOptions: {
-            position: naverMaps.Position.RIGHT_BOTTOM,
-          },
+          zoomControl: false,
         });
 
-        console.log('🗺️ 지도 인스턴스 생성 완료:', map);
         mapRef.current = map;
 
-        // 지도 로딩 완료 후 강제 리사이즈 (화면에 보이도록)
+        // 지도 로딩 완료 후 강제 리사이즈
         setTimeout(() => {
           if (map && typeof map.refresh === 'function') {
             map.refresh();
-            console.log('🔄 지도 새로고침 완료');
           }
         }, 100);
 
@@ -140,25 +254,26 @@ export default function MapView() {
           return { marker, el };
         });
 
-        const startWatch = () => {
-          const geo = navigator.geolocation;
-          if (!geo) {
-            setError('이 브라우저는 위치 서비스를 지원하지 않습니다.');
-            return;
-          }
-
-          watchId = geo.watchPosition(
+        // 위치는 조용히 백그라운드에서 가져오기
+        if (navigator.geolocation) {
+          watchId = navigator.geolocation.watchPosition(
             (pos) => {
+              if (canceled) return;
+              
               const { latitude, longitude, accuracy } = pos.coords;
               const latLng = new naverMaps.LatLng(latitude, longitude);
+              
+              setUserLocation({ lat: latitude, lng: longitude });
+              setLocationPermission('granted');
 
+              // 사용자 위치 마커 업데이트
               if (!userMarkerRef.current) {
                 userMarkerRef.current = new naverMaps.Marker({
                   position: latLng,
                   map,
                   icon: {
-                    content: '<div class="user-marker"></div>',
-                    anchor: new naverMaps.Point(12, 12),
+                    content: '<div style="width: 20px; height: 20px; background: #4285f4; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                    anchor: new naverMaps.Point(10, 10),
                   },
                 });
                 map.setCenter(latLng);
@@ -167,7 +282,7 @@ export default function MapView() {
                 userMarkerRef.current.setPosition(latLng);
               }
 
-              // 정확도 원 (meters 단위 radius)
+              // 정확도 원
               if (!accuracyCircleRef.current) {
                 accuracyCircleRef.current = new naverMaps.Circle({
                   map,
@@ -198,41 +313,32 @@ export default function MapView() {
               // 이동 속도 감지
               const now = Date.now();
               if (lastFixRef.current) {
-                const dt = Math.max(1, (now - lastFixRef.current.t) / 1000); // seconds
+                const dt = Math.max(1, (now - lastFixRef.current.t) / 1000);
                 const meters = haversineMeters(
                   lastFixRef.current.lat,
                   lastFixRef.current.lng,
                   latitude,
                   longitude
                 );
-                const speed = meters / dt; // m/s
+                const speed = meters / dt;
                 if (speed > 12) {
-                  // ~43 km/h, 주행으로 판단
                   setShowSafety(true);
                 }
               }
               lastFixRef.current = { t: now, lat: latitude, lng: longitude };
             },
             (err) => {
-              const codeMsg = {
-                1: '권한이 거부되었습니다. 브라우저 사이트 설정에서 위치 접근을 허용하세요.',
-                2: '위치 소스를 확인할 수 없습니다. Wi‑Fi/GPS 기능을 켜고 다시 시도하세요.',
-                3: '요청이 시간 초과되었습니다. 하늘이 보이는 곳으로 이동해 보세요.',
-              };
-              setError(codeMsg[err.code] || err.message || '위치 정보를 가져오지 못했습니다.');
+              if (err.code === 1) {
+                setLocationPermission('denied');
+              }
             },
-            { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+            { enableHighAccuracy: false, maximumAge: 30000, timeout: 5000 }
           );
-        };
-
-        if (tracking) startWatch();
+        }
       } catch (e) {
-        console.error('❌ 지도 초기화 에러:', e);
         if (!canceled) {
-          setError(
-            e?.message ||
-              '네이버 지도를 불러오지 못했습니다. 네트워크와 환경변수(REACT_APP_NAVER_CLIENT_ID)를 확인하세요.'
-          );
+          console.error('지도 초기화 에러:', e);
+          setError('지도를 불러오지 못했습니다.');
         }
       }
     };
@@ -262,33 +368,198 @@ export default function MapView() {
     };
   }, [tracking]);
 
+  // 바텀시트 터치 이벤트 처리
+  useEffect(() => {
+    const bottomSheet = bottomSheetRef.current;
+    if (!bottomSheet) return;
+
+    const handleTouchStart = (e) => {
+      startYRef.current = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e) => {
+      currentYRef.current = e.touches[0].clientY;
+      const diff = startYRef.current - currentYRef.current;
+      
+      if (diff > 0) {
+        setBottomSheetOpen(true);
+      } else if (diff < -50) {
+        setBottomSheetOpen(false);
+      }
+    };
+
+    bottomSheet.addEventListener('touchstart', handleTouchStart);
+    bottomSheet.addEventListener('touchmove', handleTouchMove);
+
+    return () => {
+      bottomSheet.removeEventListener('touchstart', handleTouchStart);
+      bottomSheet.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    console.log('검색:', searchQuery);
+  };
+
+  const handleLocationClick = () => {
+    if (userLocation && mapRef.current) {
+      const naverMaps = window.naver?.maps;
+      if (naverMaps) {
+        const latLng = new naverMaps.LatLng(userLocation.lat, userLocation.lng);
+        mapRef.current.setCenter(latLng);
+        mapRef.current.setZoom(16);
+      }
+    } else {
+      requestLocationPermission();
+    }
+  };
+
+  const handlePlaceClick = (place) => {
+    if (mapRef.current && window.naver?.maps && place.lat && place.lng) {
+      const naverMaps = window.naver.maps;
+      const latLng = new naverMaps.LatLng(place.lat, place.lng);
+      mapRef.current.setCenter(latLng);
+      mapRef.current.setZoom(16);
+      setBottomSheetOpen(false); // 바텀시트 닫기
+    }
+  };
+
+  const requestLocationPermission = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation({ lat: latitude, lng: longitude });
+          setLocationPermission('granted');
+          setShowLocationPrompt(false);
+          
+          if (mapRef.current && window.naver?.maps) {
+            const naverMaps = window.naver.maps;
+            const latLng = new naverMaps.LatLng(latitude, longitude);
+            
+            if (!userMarkerRef.current) {
+              userMarkerRef.current = new naverMaps.Marker({
+                position: latLng,
+                map: mapRef.current,
+                icon: {
+                  content: '<div style="width: 20px; height: 20px; background: #4285f4; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                  anchor: new naverMaps.Point(10, 10),
+                },
+              });
+            }
+            mapRef.current.setCenter(latLng);
+            mapRef.current.setZoom(16);
+          }
+        },
+        (err) => {
+          if (err.code === 1) {
+            setLocationPermission('denied');
+            setError('위치 권한이 거부되었습니다. 브라우저 설정에서 위치 접근을 허용해주세요.');
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+  };
+
   return (
-    <div className="map-page">
-      <div ref={mapContainerRef} className="map-container" />
-      <div className="top-bar">
-        <div className="brand">Stay Go</div>
-        <div className="energy-pill">Lv 1</div>
-      </div>
-      <TaskOverlay
-        tasks={tasks}
-        onToggle={(id) => setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)))}
-      />
-      <div className="bottom-card">
-        {!tracking && (
-          <button className="big-action" onClick={() => { setError(''); setTracking(true); }}>
-            탐색 시작
+    <div className="search-map-view">
+      {/* 상단 검색바 */}
+      <div className="search-header">
+        <form onSubmit={handleSearch} className="search-form">
+          <input
+            type="text"
+            placeholder="검색하기"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          <button type="button" className="location-btn" onClick={handleLocationClick}>
+            →
           </button>
-        )}
-        {error && (
-          <button className="big-action" onClick={() => { setError(''); setTracking(true); }}>
-            다시 시도
-          </button>
-        )}
-        {error && <div className="toast error">{error}</div>}
+        </form>
       </div>
-      <div className="toast" style={{position:'absolute',left:12,bottom:12,color:'#9fb8ff',fontSize:12}}>
-        본 프로젝트는 특정 게임의 자산을 사용하지 않으며, 유사한 테마만 적용합니다.
+
+      {/* 지도 영역 */}
+      <div className="map-section">
+        <div ref={mapContainerRef} className="map-container" />
+        {error && <div className="map-error">{error}</div>}
       </div>
+
+      {/* 하단 장소 목록 (바텀시트) */}
+      <div 
+        ref={bottomSheetRef}
+        className={`places-section bottom-sheet ${bottomSheetOpen ? 'open' : ''}`}
+      >
+        {/* 바텀시트 핸들 */}
+        <div 
+          className={`bottom-sheet-handle ${bottomSheetOpen ? 'open' : ''}`}
+          onClick={() => setBottomSheetOpen(!bottomSheetOpen)}
+        >
+          <div className="handle-bar"></div>
+        </div>
+        <div className="places-header">
+          <h3>방문하여 미션을 수행해보아요</h3>
+        </div>
+        <div className="places-list">
+          {places.map((place) => (
+            <div key={place.id} className="place-card">
+              <div className="place-info">
+                <h4 className="place-name">{place.name}</h4>
+                <div className="place-details">
+                  <span className="place-address">📍 {place.address}</span>
+                  {place.distance && <span className="place-distance"> · {place.distance}</span>}
+                </div>
+              </div>
+              <button className="visit-btn" onClick={() => handlePlaceClick(place)}>길찾기</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 하단 네비게이션 */}
+      <div className="bottom-nav">
+        <button className="nav-btn active">
+          <span className="nav-icon">🏠</span>
+          <span className="nav-label">주변탐색</span>
+        </button>
+        <button className="nav-btn">
+          <span className="nav-icon">☰</span>
+          <span className="nav-label">메뉴</span>
+        </button>
+      </div>
+
+      {/* 위치 권한 안내 모달 */}
+      {showLocationPrompt && (
+        <div className="location-permission-modal">
+          <div className="location-permission-content">
+            <div className="location-permission-icon">📍</div>
+            <h3>위치 권한이 필요합니다</h3>
+            <p>
+              {locationPermission === 'denied' 
+                ? '주변 장소를 찾기 위해 위치 접근 권한이 필요합니다. 브라우저 설정에서 위치 접근을 허용해주세요.'
+                : '주변 장소를 찾기 위해 위치 접근 권한이 필요합니다.'}
+            </p>
+            <div className="location-permission-buttons">
+              <button 
+                className="permission-btn primary"
+                onClick={requestLocationPermission}
+              >
+                위치 권한 허용
+              </button>
+              <button 
+                className="permission-btn secondary"
+                onClick={() => setShowLocationPrompt(false)}
+              >
+                나중에
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 안전 경고 모달 */}
       {showSafety && (
         <div className="modal-backdrop">
           <div className="modal">
@@ -298,13 +569,14 @@ export default function MapView() {
           </div>
         </div>
       )}
+
+      {/* POI 모달 */}
       {selectedPoi && (
         <PoiModal
           poi={selectedPoi}
           onClose={() => setSelectedPoi(null)}
           canClaim={canClaim(selectedPoi, lastFixRef.current)}
           onClaim={() => {
-            setTasks((prev) => prev.map((t) => (t.id === 't1' ? { ...t, done: true } : t)));
             setSelectedPoi(null);
           }}
         />
@@ -347,5 +619,3 @@ function PoiModal({ poi, onClose, canClaim, onClaim }) {
     </div>
   );
 }
-
-
