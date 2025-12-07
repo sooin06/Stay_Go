@@ -162,6 +162,7 @@ export default function MapView() {
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
   const accuracyCircleRef = useRef(null);
+  const searchMarkerRef = useRef(null); // 검색 결과 마커
   const [error, setError] = useState('');
   const [tracking, setTracking] = useState(true);
   const [showSafety, setShowSafety] = useState(false);
@@ -186,6 +187,8 @@ export default function MapView() {
   const missionTimersRef = useRef({}); // 각 미션의 타이머 저장
   const completedMissionsRef = useRef(new Set()); // 최신 완료 상태 참조
   const activeMissionRef = useRef(null); // 최신 활성 미션 참조
+  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
+  const [completedMissionName, setCompletedMissionName] = useState('');
   
   // completedMissions와 activeMission을 ref에 동기화
   useEffect(() => {
@@ -470,6 +473,13 @@ export default function MapView() {
                       activeMissionRef.current = null;
                       delete missionTimersRef.current[p.placeId];
                       console.log(`미션 완료: ${p.name}`);
+                      
+                      // 완료 애니메이션 표시
+                      setCompletedMissionName(p.name);
+                      setShowCompletionAnimation(true);
+                      setTimeout(() => {
+                        setShowCompletionAnimation(false);
+                      }, 3000); // 3초 후 애니메이션 숨김
                     }, stayTimeMs);
                   }
                 } else {
@@ -543,6 +553,10 @@ export default function MapView() {
       if (userMarkerRef.current && userMarkerRef.current.setMap) {
         userMarkerRef.current.setMap(null);
         userMarkerRef.current = null;
+      }
+      if (searchMarkerRef.current && searchMarkerRef.current.setMap) {
+        searchMarkerRef.current.setMap(null);
+        searchMarkerRef.current = null;
       }
       if (mapRef.current && mapRef.current.destroy) {
         mapRef.current.destroy();
@@ -693,7 +707,67 @@ export default function MapView() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    console.log('검색:', searchQuery);
+    if (!searchQuery.trim()) return;
+    
+    const naverMaps = window.naver?.maps;
+    if (!naverMaps || !naverMaps.Service || !naverMaps.Service.geocode) {
+      setError('지도 서비스를 사용할 수 없습니다.');
+      return;
+    }
+    
+    if (!mapRef.current) {
+      setError('지도가 준비되지 않았습니다.');
+      return;
+    }
+    
+    // Geocoder로 검색어를 좌표로 변환
+    naverMaps.Service.geocode(
+      { query: searchQuery },
+      (status, response) => {
+        if (status === naverMaps.Service.Status.OK && response.v2.addresses && response.v2.addresses.length > 0) {
+          // 첫 번째 결과 사용
+          const addr = response.v2.addresses[0];
+          const lat = parseFloat(addr.y);
+          const lng = parseFloat(addr.x);
+          
+          const latLng = new naverMaps.LatLng(lat, lng);
+          
+          // 기존 검색 마커 제거
+          if (searchMarkerRef.current) {
+            searchMarkerRef.current.setMap(null);
+            searchMarkerRef.current = null;
+          }
+          
+          // 새 검색 마커 생성
+          const markerEl = document.createElement('div');
+          markerEl.className = 'search-marker';
+          markerEl.innerHTML = '<div class="search-marker-pin"></div>';
+          
+          searchMarkerRef.current = new naverMaps.Marker({
+            position: latLng,
+            map: mapRef.current,
+            icon: {
+              content: markerEl,
+              anchor: new naverMaps.Point(12, 35),
+            },
+            zIndex: 1000,
+          });
+          
+          // 지도 중심을 검색 결과 위치로 이동
+          mapRef.current.setCenter(latLng);
+          mapRef.current.setZoom(16);
+          
+          setError(''); // 에러 초기화
+        } else {
+          setError('검색 결과를 찾을 수 없습니다.');
+          // 검색 마커 제거
+          if (searchMarkerRef.current) {
+            searchMarkerRef.current.setMap(null);
+            searchMarkerRef.current = null;
+          }
+        }
+      }
+    );
   };
 
   const handleLocationClick = () => {
@@ -919,6 +993,29 @@ export default function MapView() {
             setSelectedPoi(null);
           }}
         />
+      )}
+
+      {/* 미션 완료 애니메이션 */}
+      {showCompletionAnimation && (
+        <div className="completion-animation-overlay">
+          <div className="completion-animation">
+            <div className="completion-checkmark">
+              <svg className="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                <circle className="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                <path className="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+              </svg>
+            </div>
+            <div className="completion-text">
+              <h2>미션 완료!</h2>
+              <p>{completedMissionName}</p>
+            </div>
+            <div className="completion-confetti">
+              <span>🎉</span>
+              <span>✨</span>
+              <span>🎊</span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
