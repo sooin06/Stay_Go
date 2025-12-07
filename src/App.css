@@ -101,35 +101,6 @@ html, body, #root, .App {
 /* POI marker (mission point) */
 .poi-marker { position: relative; width: 32px; height: 32px; cursor: pointer; }
 
-/* 검색 마커 스타일 */
-.search-marker {
-  position: relative;
-  width: 24px;
-  height: 35px;
-  cursor: pointer;
-}
-
-.search-marker-pin {
-  width: 24px;
-  height: 35px;
-  background: #ff4444;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  position: relative;
-}
-
-.search-marker-pin::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(45deg);
-  width: 10px;
-  height: 10px;
-  background: white;
-  border-radius: 50%;
-}
 .poi-core {
   position: absolute; inset: 6px; border-radius: 999px;
   background: radial-gradient(circle at 30% 30%, #ffd86b, #ff7a5c);
@@ -235,49 +206,10 @@ html, body, #root, .App {
   background: #fff;
 }
 
-.search-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: #fff;
-  padding: 12px 16px;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.search-form {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.search-input {
-  flex: 1;
-  padding: 12px 16px;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  font-size: 16px;
-  outline: none;
-}
-
-.search-input:focus {
-  border-color: #007bff;
-}
-
-.location-btn {
-  padding: 12px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  font-size: 16px;
-  cursor: pointer;
-}
 
 .map-section {
   position: relative;
   flex: 1;
-  margin-top: 70px; /* 검색바 높이만큼 */
   margin-bottom: 80px; /* 네비게이션 바 높이만큼 */
 }
 
@@ -290,12 +222,12 @@ html, body, #root, .App {
 
 .map-error {
   position: fixed;
-  top: 90px;
+  top: 20px;
   left: 50%;
   transform: translateX(-50%);
   background: #fff;
   color: #dc3545;
-  padding: 12px 20px;
+  padding: 12px 40px 12px 20px;
   border-radius: 8px;
   font-size: 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -303,6 +235,45 @@ html, body, #root, .App {
   max-width: 90%;
   text-align: center;
   border: 1px solid #f1f3f4;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: slideDown 0.3s ease-out;
+}
+
+.map-error span {
+  flex: 1;
+}
+
+.map-error-close {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #dc3545;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.map-error-close:hover {
+  background-color: #f8f9fa;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 /* 로딩 화면 */

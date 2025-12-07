@@ -162,11 +162,9 @@ export default function MapView() {
   const mapRef = useRef(null);
   const userMarkerRef = useRef(null);
   const accuracyCircleRef = useRef(null);
-  const searchMarkerRef = useRef(null); // 검색 결과 마커
   const [error, setError] = useState('');
   const [tracking, setTracking] = useState(true);
   const [showSafety, setShowSafety] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [places, setPlaces] = useState(SAMPLE_PLACES);
   const [userLocation, setUserLocation] = useState(null);
   const [locationPermission, setLocationPermission] = useState('prompt');
@@ -405,7 +403,10 @@ export default function MapView() {
                 map.setCenter(latLng);
                 map.setZoom(16);
         } else {
+                // 실시간으로 마커 위치 업데이트
                 userMarkerRef.current.setPosition(latLng);
+                // 지도 중심도 사용자 위치로 자동 이동 (부드럽게)
+                map.panTo(latLng);
               }
 
               // 정확도 원
@@ -520,7 +521,11 @@ export default function MapView() {
                 setLocationPermission('denied');
               }
             },
-            { enableHighAccuracy: false, maximumAge: 30000, timeout: 5000 }
+            { 
+              enableHighAccuracy: true,  // 고정밀도 위치 사용
+              maximumAge: 0,  // 캐시된 위치 사용 안 함 (항상 최신 위치)
+              timeout: 10000  // 타임아웃 10초
+            }
           );
         }
       } catch (e) {
@@ -553,10 +558,6 @@ export default function MapView() {
       if (userMarkerRef.current && userMarkerRef.current.setMap) {
         userMarkerRef.current.setMap(null);
         userMarkerRef.current = null;
-      }
-      if (searchMarkerRef.current && searchMarkerRef.current.setMap) {
-        searchMarkerRef.current.setMap(null);
-        searchMarkerRef.current = null;
       }
       if (mapRef.current && mapRef.current.destroy) {
         mapRef.current.destroy();
@@ -705,71 +706,6 @@ export default function MapView() {
     });
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    
-    const naverMaps = window.naver?.maps;
-    if (!naverMaps || !naverMaps.Service || !naverMaps.Service.geocode) {
-      setError('지도 서비스를 사용할 수 없습니다.');
-      return;
-    }
-    
-    if (!mapRef.current) {
-      setError('지도가 준비되지 않았습니다.');
-      return;
-    }
-    
-    // Geocoder로 검색어를 좌표로 변환
-    naverMaps.Service.geocode(
-      { query: searchQuery },
-      (status, response) => {
-        if (status === naverMaps.Service.Status.OK && response.v2.addresses && response.v2.addresses.length > 0) {
-          // 첫 번째 결과 사용
-          const addr = response.v2.addresses[0];
-          const lat = parseFloat(addr.y);
-          const lng = parseFloat(addr.x);
-          
-          const latLng = new naverMaps.LatLng(lat, lng);
-          
-          // 기존 검색 마커 제거
-          if (searchMarkerRef.current) {
-            searchMarkerRef.current.setMap(null);
-            searchMarkerRef.current = null;
-          }
-          
-          // 새 검색 마커 생성
-          const markerEl = document.createElement('div');
-          markerEl.className = 'search-marker';
-          markerEl.innerHTML = '<div class="search-marker-pin"></div>';
-          
-          searchMarkerRef.current = new naverMaps.Marker({
-            position: latLng,
-            map: mapRef.current,
-            icon: {
-              content: markerEl,
-              anchor: new naverMaps.Point(12, 35),
-            },
-            zIndex: 1000,
-          });
-          
-          // 지도 중심을 검색 결과 위치로 이동
-          mapRef.current.setCenter(latLng);
-          mapRef.current.setZoom(16);
-          
-          setError(''); // 에러 초기화
-        } else {
-          setError('검색 결과를 찾을 수 없습니다.');
-          // 검색 마커 제거
-          if (searchMarkerRef.current) {
-            searchMarkerRef.current.setMap(null);
-            searchMarkerRef.current = null;
-          }
-        }
-      }
-    );
-  };
-
   const handleLocationClick = () => {
     if (userLocation && mapRef.current) {
       const naverMaps = window.naver?.maps;
@@ -866,26 +802,21 @@ export default function MapView() {
 
   return (
     <div className="search-map-view">
-      {/* 상단 검색바 */}
-      <div className="search-header">
-        <form onSubmit={handleSearch} className="search-form">
-          <input
-            type="text"
-            placeholder="검색하기"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
-          <button type="button" className="location-btn" onClick={handleLocationClick}>
-            →
-          </button>
-        </form>
-      </div>
-
       {/* 지도 영역 */}
       <div className="map-section">
         <div ref={mapContainerRef} className="map-container" />
-        {error && <div className="map-error">{error}</div>}
+        {error && (
+          <div className="map-error">
+            <span>{error}</span>
+            <button 
+              className="map-error-close" 
+              onClick={() => setError('')}
+              aria-label="닫기"
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 하단 장소 목록 (바텀시트) */}
