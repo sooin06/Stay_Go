@@ -176,6 +176,12 @@ export default function MapView() {
   const startYRef = useRef(0);
   const currentYRef = useRef(0);
   
+  // 사이드 메뉴 상태
+  const [sideMenuOpen, setSideMenuOpen] = useState(false);
+  
+  // 현재 페이지 상태 (home, myMissions, completedMissions, favorites, settings, help)
+  const [currentPage, setCurrentPage] = useState('home');
+  
   const lastFixRef = useRef(null);
   const [selectedPoi, setSelectedPoi] = useState(null);
   const poiMarkersRef = useRef([]);
@@ -800,6 +806,299 @@ export default function MapView() {
     }
   };
 
+  // 페이지 컨테이너 스타일 (지도 위에 완전히 덮기)
+  const pageContainerStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: '80px',
+    background: '#ffffff',
+    zIndex: 500,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden'
+  };
+
+  // 페이지별 렌더링 함수
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'myMissions':
+        return (
+          <div className="page-container" style={pageContainerStyle}>
+            <div className="page-header">
+              <button className="back-btn" onClick={() => setCurrentPage('home')}>←</button>
+              <h1>내 미션</h1>
+            </div>
+            <div className="page-content">
+              <div className="mission-stats">
+                <div className="stat-card">
+                  <span className="stat-number">{places.length}</span>
+                  <span className="stat-label">전체 미션</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-number">{activeMission ? 1 : 0}</span>
+                  <span className="stat-label">진행 중</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-number">{completedMissions.size}</span>
+                  <span className="stat-label">완료</span>
+                </div>
+              </div>
+              <div className="mission-list">
+                <h3>📍 진행 가능한 미션</h3>
+                {places.filter(p => !completedMissions.has(p.id)).map(place => (
+                  <div key={place.id} className="mission-card">
+                    <div className="mission-info">
+                      <h4>{place.name}</h4>
+                      <p>{place.address}</p>
+                      <span className="mission-distance">{place.distance}</span>
+                    </div>
+                    <button className="mission-start-btn" onClick={() => { handlePlaceClick(place); setCurrentPage('home'); }}>
+                      시작하기
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'completedMissions':
+        const completedPlaces = places.filter(p => completedMissions.has(p.id));
+        return (
+          <div className="page-container" style={pageContainerStyle}>
+            <div className="page-header">
+              <button className="back-btn" onClick={() => setCurrentPage('home')}>←</button>
+              <h1>완료한 미션</h1>
+            </div>
+            <div className="page-content">
+              {completedPlaces.length > 0 ? (
+                <>
+                  <div className="completion-summary">
+                    <div className="trophy-icon">🏆</div>
+                    <h2>{completedMissions.size}개 미션 완료!</h2>
+                    <p>대단해요! 계속 미션을 수행해보세요.</p>
+                  </div>
+                  <div className="completed-list">
+                    {completedPlaces.map(place => (
+                      <div key={place.id} className="completed-card">
+                        <div className="completed-icon">✓</div>
+                        <div className="completed-info">
+                          <h4>{place.name}</h4>
+                          <p>{place.address}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-icon">🎯</div>
+                  <h3>아직 완료한 미션이 없어요</h3>
+                  <p>주변 장소를 방문하고 미션을 완료해보세요!</p>
+                  <button className="primary-btn" onClick={() => setCurrentPage('home')}>
+                    미션 찾아보기
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'favorites':
+        return (
+          <div className="page-container" style={pageContainerStyle}>
+            <div className="page-header">
+              <button className="back-btn" onClick={() => setCurrentPage('home')}>←</button>
+              <h1>즐겨찾기</h1>
+            </div>
+            <div className="page-content">
+              <div className="empty-state">
+                <div className="empty-icon">⭐</div>
+                <h3>즐겨찾기가 비어있어요</h3>
+                <p>자주 방문하는 장소를 즐겨찾기에 추가해보세요!</p>
+                <button className="primary-btn" onClick={() => setCurrentPage('home')}>
+                  장소 둘러보기
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'settings':
+        return (
+          <div className="page-container" style={pageContainerStyle}>
+            <div className="page-header">
+              <button className="back-btn" onClick={() => setCurrentPage('home')}>←</button>
+              <h1>설정</h1>
+            </div>
+            <div className="page-content">
+              <div className="settings-list">
+                <div className="settings-group">
+                  <h3>알림</h3>
+                  <div className="settings-item">
+                    <span>미션 알림</span>
+                    <div className="toggle-switch on"></div>
+                  </div>
+                  <div className="settings-item">
+                    <span>위치 기반 알림</span>
+                    <div className="toggle-switch on"></div>
+                  </div>
+                </div>
+                <div className="settings-group">
+                  <h3>계정</h3>
+                  <div className="settings-item clickable">
+                    <span>프로필 수정</span>
+                    <span className="arrow">→</span>
+                  </div>
+                  <div className="settings-item clickable">
+                    <span>비밀번호 변경</span>
+                    <span className="arrow">→</span>
+                  </div>
+                </div>
+                <div className="settings-group">
+                  <h3>앱 정보</h3>
+                  <div className="settings-item">
+                    <span>버전</span>
+                    <span className="settings-value">1.0.0</span>
+                  </div>
+                  <div className="settings-item clickable">
+                    <span>이용약관</span>
+                    <span className="arrow">→</span>
+                  </div>
+                  <div className="settings-item clickable">
+                    <span>개인정보처리방침</span>
+                    <span className="arrow">→</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'help':
+        return (
+          <div className="page-container" style={pageContainerStyle}>
+            <div className="page-header">
+              <button className="back-btn" onClick={() => setCurrentPage('home')}>←</button>
+              <h1>도움말</h1>
+            </div>
+            <div className="page-content">
+              <div className="help-section">
+                <div className="help-card">
+                  <div className="help-icon">🎯</div>
+                  <h3>미션이란?</h3>
+                  <p>특정 장소에 방문하여 일정 시간 머무르면 미션이 완료됩니다. 다양한 장소를 탐험하고 미션을 완료해보세요!</p>
+                </div>
+                <div className="help-card">
+                  <div className="help-icon">📍</div>
+                  <h3>미션 수행 방법</h3>
+                  <p>1. 지도에서 미션 장소를 확인하세요.<br/>
+                     2. 해당 장소로 이동하세요.<br/>
+                     3. 500m 이내에 도착하면 미션이 시작됩니다.<br/>
+                     4. 정해진 시간 동안 머무르면 완료!</p>
+                </div>
+                <div className="help-card">
+                  <div className="help-icon">❓</div>
+                  <h3>자주 묻는 질문</h3>
+                  <div className="faq-list">
+                    <div className="faq-item">
+                      <strong>Q. 미션이 시작되지 않아요</strong>
+                      <p>A. 위치 권한을 허용했는지 확인하고, GPS 신호가 좋은 곳에서 시도해주세요.</p>
+                    </div>
+                    <div className="faq-item">
+                      <strong>Q. 미션 완료 시간은 어떻게 되나요?</strong>
+                      <p>A. 각 미션마다 필요한 머무르기 시간이 다릅니다. 미션 이름에서 확인할 수 있어요.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      default: // home
+        return null;
+    }
+  };
+
+  // 홈이 아닌 페이지일 경우 해당 페이지 렌더링
+  if (currentPage !== 'home') {
+    return (
+      <div className="search-map-view">
+        {renderPage()}
+        
+        {/* 하단 네비게이션 */}
+        <div className="bottom-nav">
+          <button className={`nav-btn ${currentPage === 'home' ? 'active' : ''}`} onClick={() => setCurrentPage('home')}>
+            <span className="nav-icon">🏠</span>
+            <span className="nav-label">주변탐색</span>
+          </button>
+          <button className="nav-btn" onClick={() => setSideMenuOpen(true)}>
+            <span className="nav-icon">☰</span>
+            <span className="nav-label">메뉴</span>
+          </button>
+        </div>
+
+        {/* 사이드 메뉴 오버레이 */}
+        <div 
+          className={`side-menu-overlay ${sideMenuOpen ? 'open' : ''}`}
+          onClick={() => setSideMenuOpen(false)}
+        />
+
+        {/* 사이드 메뉴 */}
+        <div className={`side-menu ${sideMenuOpen ? 'open' : ''}`}>
+          <div className="side-menu-header">
+            <h2>메뉴</h2>
+            <button className="side-menu-close" onClick={() => setSideMenuOpen(false)}>
+              ✕
+            </button>
+          </div>
+          <div className="side-menu-content">
+            <div className="side-menu-profile">
+              <div className="profile-avatar">👤</div>
+              <div className="profile-info">
+                <span className="profile-name">사용자</span>
+                <span className="profile-email">로그인하세요</span>
+              </div>
+            </div>
+            <nav className="side-menu-nav">
+              <button className={`side-menu-item ${currentPage === 'home' ? 'active' : ''}`} onClick={() => { setCurrentPage('home'); setSideMenuOpen(false); }}>
+                <span className="menu-icon">🏠</span>
+                <span className="menu-text">홈</span>
+              </button>
+              <button className={`side-menu-item ${currentPage === 'myMissions' ? 'active' : ''}`} onClick={() => { setCurrentPage('myMissions'); setSideMenuOpen(false); }}>
+                <span className="menu-icon">📍</span>
+                <span className="menu-text">내 미션</span>
+              </button>
+              <button className={`side-menu-item ${currentPage === 'completedMissions' ? 'active' : ''}`} onClick={() => { setCurrentPage('completedMissions'); setSideMenuOpen(false); }}>
+                <span className="menu-icon">🏆</span>
+                <span className="menu-text">완료한 미션</span>
+                {completedMissions.size > 0 && (
+                  <span className="menu-badge">{completedMissions.size}</span>
+                )}
+              </button>
+              <button className={`side-menu-item ${currentPage === 'favorites' ? 'active' : ''}`} onClick={() => { setCurrentPage('favorites'); setSideMenuOpen(false); }}>
+                <span className="menu-icon">⭐</span>
+                <span className="menu-text">즐겨찾기</span>
+              </button>
+              <div className="side-menu-divider" />
+              <button className={`side-menu-item ${currentPage === 'settings' ? 'active' : ''}`} onClick={() => { setCurrentPage('settings'); setSideMenuOpen(false); }}>
+                <span className="menu-icon">⚙️</span>
+                <span className="menu-text">설정</span>
+              </button>
+              <button className={`side-menu-item ${currentPage === 'help' ? 'active' : ''}`} onClick={() => { setCurrentPage('help'); setSideMenuOpen(false); }}>
+                <span className="menu-icon">❓</span>
+                <span className="menu-text">도움말</span>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="search-map-view">
       {/* 지도 영역 */}
@@ -868,10 +1167,65 @@ export default function MapView() {
           <span className="nav-icon">🏠</span>
           <span className="nav-label">주변탐색</span>
         </button>
-        <button className="nav-btn">
+        <button className="nav-btn" onClick={() => setSideMenuOpen(true)}>
           <span className="nav-icon">☰</span>
           <span className="nav-label">메뉴</span>
         </button>
+      </div>
+
+      {/* 사이드 메뉴 오버레이 */}
+      <div 
+        className={`side-menu-overlay ${sideMenuOpen ? 'open' : ''}`}
+        onClick={() => setSideMenuOpen(false)}
+      />
+
+      {/* 사이드 메뉴 */}
+      <div className={`side-menu ${sideMenuOpen ? 'open' : ''}`}>
+        <div className="side-menu-header">
+          <h2>메뉴</h2>
+          <button className="side-menu-close" onClick={() => setSideMenuOpen(false)}>
+            ✕
+          </button>
+        </div>
+        <div className="side-menu-content">
+          <div className="side-menu-profile">
+            <div className="profile-avatar">👤</div>
+            <div className="profile-info">
+              <span className="profile-name">사용자</span>
+              <span className="profile-email">로그인하세요</span>
+            </div>
+          </div>
+          <nav className="side-menu-nav">
+            <button className={`side-menu-item ${currentPage === 'home' ? 'active' : ''}`} onClick={() => { setCurrentPage('home'); setSideMenuOpen(false); }}>
+              <span className="menu-icon">🏠</span>
+              <span className="menu-text">홈</span>
+            </button>
+            <button className={`side-menu-item ${currentPage === 'myMissions' ? 'active' : ''}`} onClick={() => { setCurrentPage('myMissions'); setSideMenuOpen(false); }}>
+              <span className="menu-icon">📍</span>
+              <span className="menu-text">내 미션</span>
+            </button>
+            <button className={`side-menu-item ${currentPage === 'completedMissions' ? 'active' : ''}`} onClick={() => { setCurrentPage('completedMissions'); setSideMenuOpen(false); }}>
+              <span className="menu-icon">🏆</span>
+              <span className="menu-text">완료한 미션</span>
+              {completedMissions.size > 0 && (
+                <span className="menu-badge">{completedMissions.size}</span>
+              )}
+            </button>
+            <button className={`side-menu-item ${currentPage === 'favorites' ? 'active' : ''}`} onClick={() => { setCurrentPage('favorites'); setSideMenuOpen(false); }}>
+              <span className="menu-icon">⭐</span>
+              <span className="menu-text">즐겨찾기</span>
+            </button>
+            <div className="side-menu-divider" />
+            <button className={`side-menu-item ${currentPage === 'settings' ? 'active' : ''}`} onClick={() => { setCurrentPage('settings'); setSideMenuOpen(false); }}>
+              <span className="menu-icon">⚙️</span>
+              <span className="menu-text">설정</span>
+            </button>
+            <button className={`side-menu-item ${currentPage === 'help' ? 'active' : ''}`} onClick={() => { setCurrentPage('help'); setSideMenuOpen(false); }}>
+              <span className="menu-icon">❓</span>
+              <span className="menu-text">도움말</span>
+            </button>
+          </nav>
+        </div>
       </div>
 
       {/* 위치 권한 안내 모달 */}
